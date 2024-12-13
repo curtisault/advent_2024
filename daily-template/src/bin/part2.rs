@@ -1,7 +1,7 @@
 use {{crate_name}}::part2::process;
 use miette::Context;
 
-fn main() {
+fn main() -> miette::Result<()> {
     tracing_subscriber::fmt::init();
 
     let file = include_str!("../../input2.txt");
