@@ -6,7 +6,7 @@ lint day:
     cargo clippy -p {{day}}
 
 test day part:
-    cargo test -p {{day}} {{part}}
+    cargo nextest run -p {{day}} {{part}}
 
 create day:
     cargo generate --path ./daily-template --name {{day}}
