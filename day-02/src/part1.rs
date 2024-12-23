@@ -11,6 +11,8 @@ pub fn process(input: &str) -> miette::Result<i32> {
         reports_list.push(reports_vec);
     }
 
+    // dbg!(reports_list.clone());
+
     let result = reports_list
         .iter()
         .map(|list| {
