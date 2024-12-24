@@ -16,45 +16,63 @@ pub fn process(input: &str) -> miette::Result<i32> {
     let result = reports_list
         .iter()
         .map(|list| {
-            let unsafe_violations = ascending_or_descending_violations(list.clone());
-            let mut unsafe_count = 0;
+            // returns a tuple of the list and the violations indexes
+            let mut violations = ascending_or_descending_violations(list.clone(), vec![]);
 
-            for i in 1..list.len() {
-                let diff = (list[i] - list[i - 1]).abs();
-                match diff {
-                    1 | 2 | 3 => continue,
-                    _ => unsafe_count += 1,
-                };
+            dbg!(list.clone());
+            dbg!(violations);
 
-                if unsafe_count >= unsafe_violations {
-                    return 0;
-                }
-            }
-
-            1
         })
         .sum::<i32>();
 
-    Ok(result)
+    dbg!(result);
+    Ok(6)
 }
 
-fn ascending_or_descending_violations(list: Vec<i32>) -> i32 {
-    let mut violations = 0;
+fn check_violations(list: Vec<i32>, mut violations: Vec<i32>) -> (Vec<i32>, Vec<i32>) {
+    let max_unsafe_violations = 2;
+    match (list, violations) {
+        (list, violations) => {
+            if violations.len() >= max_unsafe_violations {
+                return 0;
+            }
+            else if violations.len() > 0 {
+                index_to_remove = violations[0];
+                let new_list = list.clone().remove(index_to_remove);
+            }
+        }
+    }
+
+}
+
+fn linear_violations(list: Vec<i32>) -> (Vec<i32>,Vec<i32>) {
+    let mut violations = vec![];
+
+    for i in 1..list.len() {
+        let diff = (list[i] - list[i - 1]).abs();
+        match diff {
+            1 | 2 | 3 => continue,
+            _ => violations.push(list[i]),
+        };
+    }
+
+    (list, violations)
+}
+
+fn ascending_or_descending_violations(list: Vec<i32>, mut violations: Vec<i32>) -> (Vec<i32>, Vec<i32> {
     let list_length = list.len() - 1;
 
     for i in 1..list_length {
         if list[i - 1] < list[i] && list[i] > list[i + 1] {
-            violations += 1;
+            violations.push(list[i]);
         }
 
         if list[i - 1] > list[i] && list[i] < list[i + 1] {
-            violations += 1;
+            violations.push(list[i]);
         }
     }
 
-    dbg!(list.clone());
-    dbg!(violations);
-    violations
+    (list, violations)
 }
 
 #[cfg(test)]
