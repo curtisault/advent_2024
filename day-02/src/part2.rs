@@ -1,3 +1,5 @@
+const MAX_UNSAFE_VIOLATIONS: usize = 2;
+
 #[tracing::instrument]
 pub fn process(input: &str) -> miette::Result<i32> {
     let mut reports_list = vec![];
@@ -16,12 +18,18 @@ pub fn process(input: &str) -> miette::Result<i32> {
     let result = reports_list
         .iter()
         .map(|list| {
-            // returns a tuple of the list and the violations indexes
-            let mut violations = ascending_or_descending_violations(list.clone(), vec![]);
-
             dbg!(list.clone());
-            dbg!(violations);
+            // returns a tuple of the list and the violations indexes
+            let violations = check_violations(list.clone(), vec![]);
 
+            // dbg!(list.clone());
+            dbg!(&violations);
+
+            if violations.1.len() >= MAX_UNSAFE_VIOLATIONS {
+                return 1;
+            } else {
+                return 0;
+            }
         })
         .sum::<i32>();
 
@@ -29,46 +37,55 @@ pub fn process(input: &str) -> miette::Result<i32> {
     Ok(6)
 }
 
-fn check_violations(list: Vec<i32>, mut violations: Vec<i32>) -> (Vec<i32>, Vec<i32>) {
-    let max_unsafe_violations = 2;
-    match (list, violations) {
-        (list, violations) => {
-            if violations.len() >= max_unsafe_violations {
-                return 0;
-            }
-            else if violations.len() > 0 {
-                index_to_remove = violations[0];
-                let new_list = list.clone().remove(index_to_remove);
+fn check_violations(mut list: Vec<i32>, mut violations: Vec<usize>) -> (Vec<i32>, Vec<usize>) {
+    (list, violations) = asc_or_desc_violations(list.clone(), violations);
+
+    match (list.clone(), violations.clone()) {
+        (_l, v) if v.len() == 0 => linear_violations(list, violations),
+
+        (_l, v) if v.len() >= MAX_UNSAFE_VIOLATIONS => (list, violations),
+        (l, v) if v.len() == 1 => {
+            dbg!(violations.clone());
+            let index_to_remove = violations[0];
+            let mut new_list = list.clone();
+            dbg!(l.clone());
+            new_list.remove(index_to_remove);
+            dbg!(new_list.clone());
+
+            (list, violations) = linear_violations(new_list.clone(), v.clone());
+            if violations.len() >= MAX_UNSAFE_VIOLATIONS {
+                return (list, violations);
+            } else {
+                check_violations(new_list, v)
             }
         }
-    }
 
+        _ => (list, violations),
+    }
 }
 
-fn linear_violations(list: Vec<i32>) -> (Vec<i32>,Vec<i32>) {
-    let mut violations = vec![];
-
+fn linear_violations(list: Vec<i32>, mut violations: Vec<usize>) -> (Vec<i32>, Vec<usize>) {
     for i in 1..list.len() {
         let diff = (list[i] - list[i - 1]).abs();
         match diff {
             1 | 2 | 3 => continue,
-            _ => violations.push(list[i]),
+            _ => violations.push(i + 1),
         };
     }
 
     (list, violations)
 }
 
-fn ascending_or_descending_violations(list: Vec<i32>, mut violations: Vec<i32>) -> (Vec<i32>, Vec<i32> {
+fn asc_or_desc_violations(list: Vec<i32>, mut violations: Vec<usize>) -> (Vec<i32>, Vec<usize>) {
     let list_length = list.len() - 1;
 
     for i in 1..list_length {
         if list[i - 1] < list[i] && list[i] > list[i + 1] {
-            violations.push(list[i]);
+            violations.push(i + 1);
         }
 
         if list[i - 1] > list[i] && list[i] < list[i + 1] {
-            violations.push(list[i]);
+            violations.push(i + 1);
         }
     }
 
@@ -84,7 +101,7 @@ mod tests {
         assert_eq!(
             4,
             process(
-                "7 6 4 2 1
+            "7 6 4 2 1
             1 2 7 8 9
             9 7 6 2 1
             1 3 2 4 5
