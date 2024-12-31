@@ -1,4 +1,9 @@
-const MAX_UNSAFE_VIOLATIONS: usize = 2;
+const MAX_UNSAFE_VIOLATIONS: i32 = 2;
+
+struct Reports {
+    list: Vec<i32>,
+    violations: i32,
+}
 
 #[tracing::instrument]
 pub fn process(input: &str) -> miette::Result<i32> {
@@ -18,78 +23,135 @@ pub fn process(input: &str) -> miette::Result<i32> {
     let result = reports_list
         .iter()
         .map(|list| {
-            dbg!(list.clone());
-            // returns a tuple of the list and the violations indexes
-            let violations = check_violations(list.clone(), vec![]);
-
             // dbg!(list.clone());
-            dbg!(&violations);
+            // returns a tuple of the list and the violations indexes
+            // let violations = check_violations(list.clone(), vec![]);
 
-            if violations.1.len() >= MAX_UNSAFE_VIOLATIONS {
-                return 1;
-            } else {
-                return 0;
+            dbg!(&list);
+            let initial_violations = initial_check(list.clone(), 0);
+            dbg!(&initial_violations.list);
+            dbg!(&initial_violations.violations);
+            match initial_violations.violations {
+                0 => return 1,
+                1 => {
+                    let violations =
+                        second_check(initial_violations.list, initial_violations.violations);
+                    dbg!(&violations.list);
+                    dbg!(&violations.violations);
+                    if violations.violations >= MAX_UNSAFE_VIOLATIONS {
+                        return 0;
+                    } else {
+                        return 1;
+                    }
+                }
+                _ => return 0,
             }
+            // dbg!(list.clone());
+            // dbg!(&violations);
         })
         .sum::<i32>();
 
     dbg!(result);
-    Ok(6)
+    Ok(result)
 }
 
-fn check_violations(mut list: Vec<i32>, mut violations: Vec<usize>) -> (Vec<i32>, Vec<usize>) {
-    (list, violations) = asc_or_desc_violations(list.clone(), violations);
+fn initial_check(list: Vec<i32>, violations: i32) -> Reports {
+    let asc_desc_violations = asc_or_desc_violations(list.clone(), violations);
 
-    match (list.clone(), violations.clone()) {
-        (_l, v) if v.len() == 0 => linear_violations(list, violations),
-
-        (_l, v) if v.len() >= MAX_UNSAFE_VIOLATIONS => (list, violations),
-        (l, v) if v.len() == 1 => {
-            dbg!(violations.clone());
-            let index_to_remove = violations[0];
-            let mut new_list = list.clone();
-            dbg!(l.clone());
-            new_list.remove(index_to_remove);
-            dbg!(new_list.clone());
-
-            (list, violations) = linear_violations(new_list.clone(), v.clone());
-            if violations.len() >= MAX_UNSAFE_VIOLATIONS {
-                return (list, violations);
-            } else {
-                check_violations(new_list, v)
-            }
-        }
-
-        _ => (list, violations),
+    match asc_desc_violations.violations {
+        0 | 1 => return linear_violations(list, violations),
+        _ => return Reports { list, violations },
     }
 }
 
-fn linear_violations(list: Vec<i32>, mut violations: Vec<usize>) -> (Vec<i32>, Vec<usize>) {
+fn second_check(list: Vec<i32>, violations: i32) -> Reports {
+    let reports = asc_or_desc_violations(list.clone(), violations);
+
+    if reports.violations >= MAX_UNSAFE_VIOLATIONS {
+        return Reports { list, violations };
+    } else {
+        linear_violations(reports.list, reports.violations);
+    }
+
+    return Reports { list, violations };
+}
+
+fn linear_violations(mut list: Vec<i32>, mut violations: i32) -> Reports {
+    if violations >= MAX_UNSAFE_VIOLATIONS {
+        return Reports { list, violations };
+    }
+
+    let violations_index = linear_violations_index(list.clone());
+    if violations_index != 0 {
+        list = remove_violation(list, violations_index);
+        violations += 1;
+    }
+
+    return Reports { list, violations };
+}
+
+fn linear_violations_index(list: Vec<i32>) -> i32 {
     for i in 1..list.len() {
         let diff = (list[i] - list[i - 1]).abs();
         match diff {
             1 | 2 | 3 => continue,
-            _ => violations.push(i + 1),
+            _ => {
+                return i as i32;
+            }
         };
     }
 
-    (list, violations)
+    return 0;
 }
 
-fn asc_or_desc_violations(list: Vec<i32>, mut violations: Vec<usize>) -> (Vec<i32>, Vec<usize>) {
-    let list_length = list.len() - 1;
+fn asc_or_desc_violations(mut list: Vec<i32>, mut violations: i32) -> Reports {
+    if violations >= MAX_UNSAFE_VIOLATIONS {
+        return Reports { list, violations };
+    }
 
-    for i in 1..list_length {
+    let asc_violation_index = asc_violation_index(list.clone());
+
+    if asc_violation_index != 0 {
+        list = remove_violation(list, asc_violation_index);
+        violations += 1;
+    }
+
+    let desc_violation_index = desc_violation_index(list.clone());
+
+    if desc_violation_index != 0 {
+        list = remove_violation(list, desc_violation_index);
+        violations += 1;
+    }
+
+    return Reports { list, violations };
+}
+
+fn asc_violation_index(list: Vec<i32>) -> i32 {
+    let list_len = list.len() - 1;
+    for i in 1..list_len {
         if list[i - 1] < list[i] && list[i] > list[i + 1] {
-            violations.push(i + 1);
-        }
-
-        if list[i - 1] > list[i] && list[i] < list[i + 1] {
-            violations.push(i + 1);
+            return i as i32;
         }
     }
 
-    (list, violations)
+    return 0;
+}
+
+fn desc_violation_index(list: Vec<i32>) -> i32 {
+    let list_len = list.len() - 1;
+    for i in 1..list_len {
+        if list[i - 1] > list[i] && list[i] < list[i + 1] {
+            return i as i32;
+        }
+    }
+
+    return 0;
+}
+
+fn remove_violation(list: Vec<i32>, index: i32) -> Vec<i32> {
+    let mut new_list = list;
+    new_list.remove(index as usize);
+    return new_list;
 }
 
 #[cfg(test)]
@@ -101,12 +163,12 @@ mod tests {
         assert_eq!(
             4,
             process(
-            "7 6 4 2 1
-            1 2 7 8 9
-            9 7 6 2 1
-            1 3 2 4 5
-            8 6 4 4 1
-            1 3 6 7 9"
+                "7 6 4 2 1
+                1 2 7 8 9
+                9 7 6 2 1
+                1 3 2 4 5
+                8 6 4 4 1
+                1 3 6 7 9"
             )?
         );
         Ok(())
