@@ -4,6 +4,14 @@ const MAX_UNSAFE_VIOLATIONS: i32 = 2;
 struct Report {
     list: Vec<i32>,
     violations: i32,
+    list_type: LevelType,
+}
+
+#[derive(Debug, Clone)]
+enum LevelType {
+    Ascending,
+    Descending,
+    Error,
 }
 
 #[tracing::instrument]
@@ -19,19 +27,12 @@ pub fn process(input: &str) -> miette::Result<i32> {
         reports_list.push(reports_vec);
     }
 
-    // dbg!(reports_list.clone());
-
     let result = reports_list
         .iter()
         .map(|list| {
-            // dbg!(list.clone());
-            // returns a tuple of the list and the violations indexes
-            // let violations = check_violations(list.clone(), vec![]);
-
             dbg!(&list);
             let first_check = initial_check(list.clone());
-            dbg!(&first_check.list);
-            dbg!(&first_check.violations);
+            dbg!(&first_check);
             match first_check.violations {
                 0 => return 1,
                 1 => {
@@ -45,8 +46,6 @@ pub fn process(input: &str) -> miette::Result<i32> {
                 }
                 _ => return 0,
             }
-            // dbg!(list.clone());
-            // dbg!(&violations);
         })
         .sum::<i32>();
 
@@ -58,14 +57,10 @@ fn initial_check(list: Vec<i32>) -> Report {
     let mut init_check = Report {
         list: list.clone(),
         violations: 0,
+        list_type: asc_or_desc_list(&list),
     };
-    init_check = asc_violations(init_check);
 
-    if init_check.violations > 0 {
-        return init_check;
-    }
-
-    init_check = desc_violations(init_check);
+    init_check = check_asc_or_desc_violations(init_check);
 
     if init_check.violations > 0 {
         return init_check;
@@ -77,14 +72,28 @@ fn initial_check(list: Vec<i32>) -> Report {
     }
 }
 
-fn second_check(report: Report) -> Report {
-    let reports = asc_violations(report);
+fn check_asc_or_desc_violations(report: Report) -> Report {
+    match report.list_type {
+        LevelType::Ascending => {
+            return asc_violations(report);
+        }
+        LevelType::Descending => {
+            return desc_violations(report);
+        }
+        LevelType::Error => {
+            return report;
+        }
+    }
+}
 
-    if reports.violations >= MAX_UNSAFE_VIOLATIONS {
-        return reports;
+fn second_check(report: Report) -> Report {
+    let report = check_asc_or_desc_violations(report);
+
+    if report.violations >= MAX_UNSAFE_VIOLATIONS {
+        return report;
     }
 
-    linear_violations(reports)
+    return linear_violations(report);
 }
 
 fn linear_violations(report: Report) -> Report {
@@ -114,12 +123,23 @@ fn linear_violations_index(list: Vec<i32>) -> i32 {
     return -1;
 }
 
+fn asc_or_desc_list(list: &Vec<i32>) -> LevelType {
+    let first = list[0];
+    let last = list[list.len() - 1];
+
+    match (first, last) {
+        (first, last) if first < last => LevelType::Ascending,
+        (first, last) if first > last => LevelType::Descending,
+        _ => LevelType::Error,
+    }
+}
+
 fn asc_violations(report: Report) -> Report {
     if report.violations >= MAX_UNSAFE_VIOLATIONS {
         return report;
     }
 
-    let asc_violation_index = asc_violation_index(report.list.clone());
+    let asc_violation_index = asc_violation_index(&report.list);
 
     if asc_violation_index >= 0 {
         return remove_violation(report, asc_violation_index);
@@ -129,18 +149,17 @@ fn asc_violations(report: Report) -> Report {
 }
 
 fn desc_violations(report: Report) -> Report {
-    let desc_violation_index = desc_violation_index(report.list.clone());
+    let desc_violation_index = desc_violation_index(&report.list);
 
     if desc_violation_index >= 0 {
-        let report_with_removed_index = remove_violation(report, desc_violation_index);
-        return report_with_removed_index;
+        return remove_violation(report, desc_violation_index);
     }
 
     return report;
 }
 
 // returns the index of the first ascending violation in the list or -1 if there are no violations
-fn asc_violation_index(list: Vec<i32>) -> i32 {
+fn asc_violation_index(list: &Vec<i32>) -> i32 {
     let list_len = list.len() - 1;
     for i in 1..list_len {
         if list[i - 1] < list[i] && list[i] > list[i + 1] {
@@ -152,7 +171,7 @@ fn asc_violation_index(list: Vec<i32>) -> i32 {
 }
 
 // returns the index of the first descending violation in the list or -1 if there are no violations
-fn desc_violation_index(list: Vec<i32>) -> i32 {
+fn desc_violation_index(list: &Vec<i32>) -> i32 {
     let list_len = list.len() - 1;
     for i in 1..list_len {
         if list[i - 1] > list[i] && list[i] < list[i + 1] {
@@ -175,17 +194,23 @@ mod tests {
 
     #[test]
     fn test_process() -> miette::Result<()> {
-        assert_eq!(
-            4,
-            process(
-                "7 6 4 2 1
-                1 2 7 8 9
-                9 7 6 2 1
-                1 3 2 4 5
-                8 6 4 4 1
-                1 3 6 7 9"
-            )?
-        );
+        // assert_eq!(
+        //     4,
+        //     process(
+        //         "7 6 4 2 1
+        //         1 2 7 8 9
+        //         9 7 6 2 1
+        //         1 3 2 4 5
+        //         8 6 4 4 1
+        //         1 3 6 7 9"
+        //     )?
+        // );
+        assert_eq!(1, process("7 6 4 2 1")?);
+        assert_eq!(0, process("1 2 7 8 9")?);
+        assert_eq!(0, process("9 7 6 2 1")?);
+        assert_eq!(1, process("1 3 2 4 5")?);
+        assert_eq!(1, process("8 6 4 4 1")?);
+        assert_eq!(1, process("1 3 6 7 9")?);
         Ok(())
     }
 }
