@@ -1,6 +1,7 @@
 const MAX_UNSAFE_VIOLATIONS: i32 = 2;
 
-struct Reports {
+#[derive(Debug, Clone)]
+struct Report {
     list: Vec<i32>,
     violations: i32,
 }
@@ -28,17 +29,15 @@ pub fn process(input: &str) -> miette::Result<i32> {
             // let violations = check_violations(list.clone(), vec![]);
 
             dbg!(&list);
-            let initial_violations = initial_check(list.clone(), 0);
-            dbg!(&initial_violations.list);
-            dbg!(&initial_violations.violations);
-            match initial_violations.violations {
+            let first_check = initial_check(list.clone());
+            dbg!(&first_check.list);
+            dbg!(&first_check.violations);
+            match first_check.violations {
                 0 => return 1,
                 1 => {
-                    let violations =
-                        second_check(initial_violations.list, initial_violations.violations);
-                    dbg!(&violations.list);
-                    dbg!(&violations.violations);
-                    if violations.violations >= MAX_UNSAFE_VIOLATIONS {
+                    let final_violations = second_check(first_check);
+                    dbg!(&final_violations);
+                    if final_violations.violations >= MAX_UNSAFE_VIOLATIONS {
                         return 0;
                     } else {
                         return 1;
@@ -55,39 +54,50 @@ pub fn process(input: &str) -> miette::Result<i32> {
     Ok(result)
 }
 
-fn initial_check(list: Vec<i32>, violations: i32) -> Reports {
-    let asc_desc_violations = asc_or_desc_violations(list.clone(), violations);
+fn initial_check(list: Vec<i32>) -> Report {
+    let mut init_check = Report {
+        list: list.clone(),
+        violations: 0,
+    };
+    init_check = asc_violations(init_check);
 
-    match asc_desc_violations.violations {
-        0 | 1 => return linear_violations(list, violations),
-        _ => return Reports { list, violations },
+    if init_check.violations > 0 {
+        return init_check;
+    }
+
+    init_check = desc_violations(init_check);
+
+    if init_check.violations > 0 {
+        return init_check;
+    }
+
+    match init_check.violations {
+        0 | 1 => return linear_violations(init_check),
+        _ => return init_check,
     }
 }
 
-fn second_check(list: Vec<i32>, violations: i32) -> Reports {
-    let reports = asc_or_desc_violations(list.clone(), violations);
+fn second_check(report: Report) -> Report {
+    let reports = asc_violations(report);
 
     if reports.violations >= MAX_UNSAFE_VIOLATIONS {
-        return Reports { list, violations };
-    } else {
-        linear_violations(reports.list, reports.violations);
+        return reports;
     }
 
-    return Reports { list, violations };
+    linear_violations(reports)
 }
 
-fn linear_violations(mut list: Vec<i32>, mut violations: i32) -> Reports {
-    if violations >= MAX_UNSAFE_VIOLATIONS {
-        return Reports { list, violations };
+fn linear_violations(report: Report) -> Report {
+    if report.violations >= MAX_UNSAFE_VIOLATIONS {
+        return report;
     }
 
-    let violations_index = linear_violations_index(list.clone());
-    if violations_index != 0 {
-        list = remove_violation(list, violations_index);
-        violations += 1;
+    let violations_index = linear_violations_index(report.list.clone());
+    if violations_index >= 0 {
+        return remove_violation(report, violations_index);
     }
 
-    return Reports { list, violations };
+    return report;
 }
 
 fn linear_violations_index(list: Vec<i32>) -> i32 {
@@ -101,31 +111,35 @@ fn linear_violations_index(list: Vec<i32>) -> i32 {
         };
     }
 
-    return 0;
+    return -1;
 }
 
-fn asc_or_desc_violations(mut list: Vec<i32>, mut violations: i32) -> Reports {
-    if violations >= MAX_UNSAFE_VIOLATIONS {
-        return Reports { list, violations };
+fn asc_violations(report: Report) -> Report {
+    if report.violations >= MAX_UNSAFE_VIOLATIONS {
+        return report;
     }
 
-    let asc_violation_index = asc_violation_index(list.clone());
+    let asc_violation_index = asc_violation_index(report.list.clone());
 
-    if asc_violation_index != 0 {
-        list = remove_violation(list, asc_violation_index);
-        violations += 1;
+    if asc_violation_index >= 0 {
+        return remove_violation(report, asc_violation_index);
     }
 
-    let desc_violation_index = desc_violation_index(list.clone());
-
-    if desc_violation_index != 0 {
-        list = remove_violation(list, desc_violation_index);
-        violations += 1;
-    }
-
-    return Reports { list, violations };
+    return report;
 }
 
+fn desc_violations(report: Report) -> Report {
+    let desc_violation_index = desc_violation_index(report.list.clone());
+
+    if desc_violation_index >= 0 {
+        let report_with_removed_index = remove_violation(report, desc_violation_index);
+        return report_with_removed_index;
+    }
+
+    return report;
+}
+
+// returns the index of the first ascending violation in the list or -1 if there are no violations
 fn asc_violation_index(list: Vec<i32>) -> i32 {
     let list_len = list.len() - 1;
     for i in 1..list_len {
@@ -134,9 +148,10 @@ fn asc_violation_index(list: Vec<i32>) -> i32 {
         }
     }
 
-    return 0;
+    return -1;
 }
 
+// returns the index of the first descending violation in the list or -1 if there are no violations
 fn desc_violation_index(list: Vec<i32>) -> i32 {
     let list_len = list.len() - 1;
     for i in 1..list_len {
@@ -145,13 +160,13 @@ fn desc_violation_index(list: Vec<i32>) -> i32 {
         }
     }
 
-    return 0;
+    return -1;
 }
 
-fn remove_violation(list: Vec<i32>, index: i32) -> Vec<i32> {
-    let mut new_list = list;
-    new_list.remove(index as usize);
-    return new_list;
+fn remove_violation(mut report: Report, index: i32) -> Report {
+    report.list.remove(index as usize);
+    report.violations += 1;
+    report
 }
 
 #[cfg(test)]
