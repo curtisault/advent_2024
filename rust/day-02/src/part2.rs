@@ -101,7 +101,7 @@ fn linear_violations(report: Report) -> Report {
         return report;
     }
 
-    let violations_index = linear_violations_index(report.list.clone());
+    let violations_index = linear_violations_index(&report.list);
     if violations_index >= 0 {
         return remove_violation(report, violations_index);
     }
@@ -109,7 +109,7 @@ fn linear_violations(report: Report) -> Report {
     return report;
 }
 
-fn linear_violations_index(list: Vec<i32>) -> i32 {
+fn linear_violations_index(list: &Vec<i32>) -> i32 {
     for i in 1..list.len() {
         let diff = (list[i] - list[i - 1]).abs();
         match diff {
